@@ -10,7 +10,6 @@ import (
 	"context"
 	"github.com/orbs-network/govnr"
 	"github.com/orbs-network/lean-helix-go"
-	lhmetrics "github.com/orbs-network/lean-helix-go/instrumentation/metrics"
 	lh "github.com/orbs-network/lean-helix-go/services/interfaces"
 	lhprimitives "github.com/orbs-network/lean-helix-go/spec/types/go/primitives"
 	"github.com/orbs-network/orbs-network-go/config"
@@ -108,11 +107,11 @@ func NewLeanHelixConsensusAlgo(
 		KeyManager:          mgr,
 		ElectionTimeoutOnV0: config.LeanHelixConsensusRoundTimeoutInterval(),
 		Logger:              NewLoggerWrapper(parentLogger, config.LeanHelixShowDebug()),
-		OnElectionCB:        s.onElection,
+		OnNewViewCB:         s.onNewView,
 	}
 
 	logger.Info("NewLeanHelixConsensusAlgo() instantiating NewLeanHelix()", log.String("election-timeout", leanHelixConfig.ElectionTimeoutOnV0.String()))
-	s.leanHelix = leanhelix.NewLeanHelix(leanHelixConfig, s.onCommit, s.onNewConsensusRound)
+	s.leanHelix = leanhelix.NewLeanHelix(leanHelixConfig, s.onCommit, nil)
 
 	if config.ActiveConsensusAlgo() == consensus.CONSENSUS_ALGO_TYPE_LEAN_HELIX {
 		waiter := s.leanHelix.Run(ctx)
@@ -211,10 +210,6 @@ func (s *Service) HandleLeanHelixMessage(ctx context.Context, input *gossiptopic
 	return nil, nil
 }
 
-func (s *Service) onNewConsensusRound(ctx context.Context, newHeight lhprimitives.BlockHeight, prevBlock lh.Block, canBeFirstLeader bool) {
-	s.metrics.currentElectionCount.Update(0)
-}
-
 func (s *Service) onCommit(ctx context.Context, block lh.Block, blockProof []byte, view lhprimitives.View) error {
 	logger := s.logger.WithTags(trace.LogFieldFrom(ctx))
 	logger.Info("YEYYYY CONSENSUS!!!! will save to block storage", logfields.BlockHeight(primitives.BlockHeight(block.Height())))
@@ -254,14 +249,14 @@ func CreateTransactionBlockProof(blockPair *protocol.BlockPairContainer, blockPr
 	}).Build()
 }
 
-func (s *Service) onElection(m lhmetrics.ElectionMetrics) {
-	memberIdStr := m.CurrentLeaderMemberId().String()[:6]
-	s.metrics.currentLeaderMemberId.Update(string(memberIdStr))
-	s.metrics.currentElectionCount.Update(int64(m.CurrentView()))
+func (s *Service) onNewView(leader lhprimitives.MemberId, view lhprimitives.View) {
+	memberIdStr := leader.String()[:6]
+	s.metrics.currentLeaderMemberId.Update(memberIdStr)
+	s.metrics.currentElectionCount.Update(int64(view))
 	now := time.Now()
 	s.metrics.timeSinceLastElectionMillis.RecordSince(s.lastElectionTime)
 	s.lastElectionTime = now
-	s.logger.Info("onElection()", log.String("lh-leader-member-id", memberIdStr), log.Int64("lh-view", int64(m.CurrentView())))
+	s.logger.Info("onNewView()", log.String("lh-leader-member-id", memberIdStr), log.Int64("lh-view", int64(view)))
 }
 
 func (s *Service) saveToBlockStorage(ctx context.Context, blockPair *protocol.BlockPairContainer) error {
