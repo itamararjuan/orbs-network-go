@@ -56,6 +56,47 @@ func TestMetricsAreUpdatedOnElectionTrigger(t *testing.T) {
 
 }
 
+func TestElectionCountMetricIsResetOnNewTerm(t *testing.T) {
+
+	with.Concurrency(t, func(ctx context.Context, parent *with.ConcurrencyHarness) {
+		h := newSingleLhcNodeHarness().
+			start(parent, ctx)
+
+		h.dontBeFirstInCommitee()
+		h.expectGossipSendLeanHelixMessage()
+		h.expectValidateTransactionBlock()
+		h.expectValidateResultsBlock()
+		h.expectCommitBlock()
+
+		const baseHeight = 1
+		const view = 0
+
+		h.handleBlockSync(ctx, baseHeight)
+
+		// Election trigger should fire and metrics should be updated
+		metrics := h.getMetrics()
+
+		// By block sync
+		metrics.currentElectionCount.Update(-1) // So updating to 0 is meaningful
+		h.handleBlockSync(ctx, baseHeight+1)
+		require.True(t, test.Eventually(1*time.Second, func() bool {
+			return metrics.currentElectionCount.Value() == view
+		}), "expected currentElectionCount metric to update")
+
+		// And by commit
+
+		randomSeed := getInitialRandomSeed()
+		advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, baseHeight+2, view)
+		metrics.currentElectionCount.Update(-1) // So updating it to 0 is meaningful
+		advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, baseHeight+3, view)
+		require.True(t, test.Eventually(1*time.Second, func() bool {
+			return metrics.currentElectionCount.Value() == view
+		}), "expected currentElectionCount metric to update")
+
+	})
+
+}
+
 func TestMetricsAreUpdatedOnCommit(t *testing.T) {
 
 	with.Concurrency(t, func(ctx context.Context, parent *with.ConcurrencyHarness) {
@@ -73,26 +114,26 @@ func TestMetricsAreUpdatedOnCommit(t *testing.T) {
 
 		metrics := h.getMetrics()
 
-		orderedCommittee := h.requestOrderingCommittee(ctx)
-		orderedComitteeNodeIndicies := keys.NodeAddressesForTestsToIndexes(orderedCommittee.NodeAddresses)
-
-		leaderNodeIndex := orderedComitteeNodeIndicies[0] // leader for view 0 is always the first member in the ordered committee
-
-		randomSeed := getInitialRandomSeed()
-
 		const firstTermHeight = syncedBlockHeight + 1
 		const view = 0
 
-		randomSeed = advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, firstTermHeight, view, leaderNodeIndex)
+		randomSeed := getInitialRandomSeed()
+
+		metrics.viewAtLastCommit.Update(-1) // So updating it to 0 is meaningful
+		randomSeed = advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, firstTermHeight, view)
 
 		// At this point the first block should be committed, lastCommitTime should update
 		now := time.Now()
 		require.True(t, test.Eventually(1*time.Second, func() bool {
 			return abs(now.UnixNano()-metrics.lastCommittedTime.Value()) < int64(time.Minute)
-		}), "expected lastCommittedTime metric not to update on first commit")
+		}), "expected lastCommittedTime to update")
+
+		require.True(t, test.Eventually(1*time.Second, func() bool {
+			return metrics.viewAtLastCommit.Value() == view
+		}), "expected viewAtLastCommit to update")
 
 		// timeSinceLastCommitMillis will NOT update because this is the first commit
-		require.True(t, strings.Contains(metrics.timeSinceLastCommitMillis.String(), "samples=0"), "expected lastCommittedTime to not update on first commit")
+		require.True(t, strings.Contains(metrics.timeSinceLastCommitMillis.String(), "samples=0"), "expected timeSinceLastCommitMillis not to update on first commit")
 
 		firstTermCommitTime := metrics.lastCommittedTime.Value()
 
@@ -100,7 +141,8 @@ func TestMetricsAreUpdatedOnCommit(t *testing.T) {
 
 		const secondTermHeight = firstTermHeight + 1
 
-		advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, secondTermHeight, view, leaderNodeIndex)
+		metrics.viewAtLastCommit.Update(-1) // So updating it to 0 is meaningful
+		advanceConsesnsusToNextBlock(t, ctx, h, randomSeed, secondTermHeight, view)
 
 		// A second commit should take place now and this time timeSinceLastCommitMillis should update
 
@@ -116,6 +158,10 @@ func TestMetricsAreUpdatedOnCommit(t *testing.T) {
 			return metrics.lastCommittedTime.Value() > firstTermCommitTime
 		}), "expected lastCommittedTime to increase after the second commit")
 
+		require.True(t, test.Eventually(1*time.Second, func() bool {
+			return metrics.viewAtLastCommit.Value() == view
+		}), "expected viewAtLastCommit to update")
+
 	})
 
 }
@@ -125,7 +171,11 @@ func getInitialRandomSeed() uint64 {
 	return randomseed.CalculateRandomSeed(prevBlockProof.RandomSeedSignature())
 }
 
-func advanceConsesnsusToNextBlock(t *testing.T, ctx context.Context, h *singleLhcNodeHarness, randomSeed uint64, height primitives.BlockHeight, view lhprimitives.View, leaderNodeIndex int) uint64 {
+func advanceConsesnsusToNextBlock(t *testing.T, ctx context.Context, h *singleLhcNodeHarness, randomSeed uint64, height primitives.BlockHeight, view lhprimitives.View) uint64 {
+	orderedCommittee := h.requestOrderingCommittee(ctx)
+	orderedComitteeNodeIndicies := keys.NodeAddressesForTestsToIndexes(orderedCommittee.NodeAddresses)
+	leaderNodeIndex := orderedComitteeNodeIndicies[int(view)%len(orderedComitteeNodeIndicies)] // leader for view 0 is always the first member in the ordered committee
+
 	blockPair := builders.BlockPair().WithHeight(height).WithTransactions(1).WithEmptyLeanHelixBlockProof().Build()
 
 	h.handlePreprepareMessage(ctx, blockPair, height, view, leaderNodeIndex)
@@ -135,17 +185,6 @@ func advanceConsesnsusToNextBlock(t *testing.T, ctx context.Context, h *singleLh
 		cmsg := h.handleCommitMessage(ctx, blockPair, height, view, randomSeed, i)
 		commitMessages = append(commitMessages, cmsg)
 	}
-
-	metrics := h.getMetrics()
-
-	// At this point the first block should be committed, lastCommitTime should update
-	now := time.Now()
-	require.True(t, test.Eventually(1*time.Second, func() bool {
-		return abs(now.UnixNano()-metrics.lastCommittedTime.Value()) < int64(time.Minute)
-	}), "expected lastCommittedTime metric not to update on first commit")
-
-	// timeSinceLastCommitMillis will NOT update because this is the first commit
-	require.True(t, strings.Contains(metrics.timeSinceLastCommitMillis.String(), "samples=0"), "expected lastCommittedTime to not update on first commit")
 
 	// Use commits from previous term to calculate the random seed for the next term
 	proof := blockproof.GenerateLeanHelixBlockProof(h.keyManagerForNode(h.nodeIndex()), commitMessages)

@@ -12,6 +12,7 @@ import (
 	"github.com/orbs-network/lean-helix-go"
 	lhmetrics "github.com/orbs-network/lean-helix-go/instrumentation/metrics"
 	lh "github.com/orbs-network/lean-helix-go/services/interfaces"
+	lhprimitives "github.com/orbs-network/lean-helix-go/spec/types/go/primitives"
 	"github.com/orbs-network/orbs-network-go/config"
 	"github.com/orbs-network/orbs-network-go/crypto/digest"
 	"github.com/orbs-network/orbs-network-go/crypto/signer"
@@ -48,6 +49,7 @@ type Service struct {
 type metrics struct {
 	timeSinceLastCommitMillis   *metric.Histogram
 	timeSinceLastElectionMillis *metric.Histogram
+	viewAtLastCommit            *metric.Gauge
 	currentLeaderMemberId       *metric.Text
 	currentElectionCount        *metric.Gauge
 	lastCommittedTime           *metric.Gauge
@@ -57,9 +59,10 @@ func newMetrics(m metric.Factory) *metrics {
 	return &metrics{
 		timeSinceLastCommitMillis:   m.NewLatency("ConsensusAlgo.LeanHelix.TimeSinceLastCommit.Millis", 30*time.Minute),
 		timeSinceLastElectionMillis: m.NewLatency("ConsensusAlgo.LeanHelix.TimeSinceLastElection.Millis", 30*time.Minute),
+		viewAtLastCommit:            m.NewGauge("ConsensusAlgo.LeanHelix.TimeSinceLastElection.ViewAtLastCommit"),
 		currentElectionCount:        m.NewGauge("ConsensusAlgo.LeanHelix.CurrentElection.Number"),
-		currentLeaderMemberId:       m.NewText("ConsensusAlgo.LeanHelix.CurrentLeaderMemberId.Number"),
 		lastCommittedTime:           m.NewGauge("ConsensusAlgo.LeanHelix.LastCommitted.TimeNano"),
+		currentLeaderMemberId:       m.NewText("ConsensusAlgo.LeanHelix.CurrentLeaderMemberId.Number"),
 	}
 }
 
@@ -109,7 +112,7 @@ func NewLeanHelixConsensusAlgo(
 	}
 
 	logger.Info("NewLeanHelixConsensusAlgo() instantiating NewLeanHelix()", log.String("election-timeout", leanHelixConfig.ElectionTimeoutOnV0.String()))
-	s.leanHelix = leanhelix.NewLeanHelix(leanHelixConfig, s.onCommit, nil)
+	s.leanHelix = leanhelix.NewLeanHelix(leanHelixConfig, s.onCommit, s.onNewConsensusRound)
 
 	if config.ActiveConsensusAlgo() == consensus.CONSENSUS_ALGO_TYPE_LEAN_HELIX {
 		waiter := s.leanHelix.Run(ctx)
@@ -208,7 +211,11 @@ func (s *Service) HandleLeanHelixMessage(ctx context.Context, input *gossiptopic
 	return nil, nil
 }
 
-func (s *Service) onCommit(ctx context.Context, block lh.Block, blockProof []byte) error {
+func (s *Service) onNewConsensusRound(ctx context.Context, newHeight lhprimitives.BlockHeight, prevBlock lh.Block, canBeFirstLeader bool) {
+	s.metrics.currentElectionCount.Update(0)
+}
+
+func (s *Service) onCommit(ctx context.Context, block lh.Block, blockProof []byte, view lhprimitives.View) error {
 	logger := s.logger.WithTags(trace.LogFieldFrom(ctx))
 	logger.Info("YEYYYY CONSENSUS!!!! will save to block storage", logfields.BlockHeight(primitives.BlockHeight(block.Height())))
 	blockPairWrapper := block.(*BlockPairWrapper)
@@ -226,6 +233,7 @@ func (s *Service) onCommit(ctx context.Context, block lh.Block, blockProof []byt
 	now := time.Now()
 	s.metrics.lastCommittedTime.Update(now.UnixNano())
 	s.metrics.timeSinceLastCommitMillis.RecordSince(s.lastCommitTime)
+	s.metrics.viewAtLastCommit.Update(int64(view))
 	s.lastCommitTime = now
 	return nil
 }
