@@ -8,6 +8,7 @@ package metric
 
 import (
 	"fmt"
+	"github.com/orbs-network/orbs-network-go/instrumentation/statsd"
 	"github.com/orbs-network/scribe/log"
 	"strconv"
 	"sync/atomic"
@@ -36,6 +37,7 @@ func (g *Gauge) String() string {
 
 func (g *Gauge) Inc() {
 	g.Add(1)
+	statsd.StatsdInstance().Increment(g.name)
 }
 
 func (g *Gauge) Add(i int64) {

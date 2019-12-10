@@ -10,6 +10,7 @@ package metric
 import (
 	"fmt"
 	"github.com/codahale/hdrhistogram"
+	"github.com/orbs-network/orbs-network-go/instrumentation/statsd"
 	"sync/atomic"
 	"time"
 )
@@ -32,6 +33,7 @@ func (h *Histogram) RecordSince(t time.Time) {
 	if err := h.histo.Current.RecordValue(int64(d)); err != nil {
 		atomic.AddInt64(&h.overflowCount, 1)
 	}
+	statsd.StatsdInstance().Timing(h.name, int64(d/int64(time.Millisecond)))
 }
 
 func (h *Histogram) Record(measurement int64) {

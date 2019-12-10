@@ -8,6 +8,7 @@ package publicapi
 
 import (
 	"context"
+	"fmt"
 	"github.com/orbs-network/orbs-network-go/crypto/digest"
 	"github.com/orbs-network/orbs-network-go/instrumentation/logfields"
 	"github.com/orbs-network/orbs-network-go/instrumentation/trace"
@@ -27,6 +28,7 @@ func (s *service) SendTransaction(parentCtx context.Context, input *services.Sen
 		return nil, err
 	}
 	if out.transactionStatus == protocol.TRANSACTION_STATUS_COMMITTED {
+		fmt.Println("Sent transaction")
 		s.metrics.sendTransactionTime.RecordSince(start)
 	}
 	return toSendTxOutput(out), err
