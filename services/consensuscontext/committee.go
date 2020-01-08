@@ -9,7 +9,6 @@ package consensuscontext
 import (
 	"context"
 	lhprimitives "github.com/orbs-network/lean-helix-go/spec/types/go/primitives"
-	"github.com/orbs-network/orbs-spec/types/go/primitives"
 	"github.com/orbs-network/orbs-spec/types/go/services"
 	"strings"
 )
@@ -19,18 +18,9 @@ func (s *service) RequestOrderingCommittee(ctx context.Context, input *services.
 }
 
 func (s *service) RequestValidationCommittee(ctx context.Context, input *services.RequestCommitteeInput) (*services.RequestCommitteeOutput, error) {
-	var committee []primitives.NodeAddress
-	var err error
-	if s.config.ConsensusContextCommitteeUsingContract() {
-		committee, err = s.generateCommitteeUsingContract(ctx, input)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		committee, err = s.generateCommitteeUsingConsensus(ctx, input)
-		if err != nil {
-			return nil, err
-		}
+	committee, output, e := s.committeeProvider.GetCommittee(ctx, input)
+	if e != nil {
+		return output, e
 	}
 
 	s.metrics.committeeSize.Update(int64(len(committee)))
@@ -45,3 +35,4 @@ func (s *service) RequestValidationCommittee(ctx context.Context, input *service
 	}
 	return res, nil
 }
+

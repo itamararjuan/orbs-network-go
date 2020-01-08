@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package consensuscontext
+package adapter
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 const CALL_COMMITTEE_CONTRACT_INTERVAL = 200 * time.Millisecond
 
-func (s *service) getOrderedCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) getOrderedCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	logger := s.logger.WithTags(trace.LogFieldFrom(ctx))
 
 	lastCommittedBlockHeight := currentBlockHeight - 1
@@ -47,7 +47,7 @@ func (s *service) getOrderedCommittee(ctx context.Context, currentBlockHeight pr
 	return orderedCommittee, nil
 }
 
-func (s *service) callGetOrderedCommitteeSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callGetOrderedCommitteeSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	attempts := 1
 	for {
 		// exit on system shutdown
@@ -76,7 +76,7 @@ func (s *service) callGetOrderedCommitteeSystemContractUntilSuccess(ctx context.
 	}
 }
 
-func (s *service) callGetOrderedCommitteeSystemContract(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callGetOrderedCommitteeSystemContract(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	systemContractName := primitives.ContractName(committee_systemcontract.CONTRACT_NAME)
 	systemMethodName := primitives.MethodName(committee_systemcontract.METHOD_GET_ORDERED_COMMITTEE)
 
@@ -106,7 +106,7 @@ func (s *service) callGetOrderedCommitteeSystemContract(ctx context.Context, blo
 	return splitAddresses(joinedAddresses), nil
 }
 
-func (s *service) generateGenesisCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) generateGenesisCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	addresses := generateGenesisCommitteeAddresses(s.config.GenesisValidatorNodes())
 	orderedCommittee, err := s.callGetOrderedCommitteeForAddressesSystemContractUntilSuccess(ctx, currentBlockHeight, addresses)
 	if err != nil {
@@ -123,7 +123,7 @@ func generateGenesisCommitteeAddresses(nodes map[string]config.ValidatorNode) []
 	return res
 }
 
-func (s *service) callGetOrderedCommitteeForAddressesSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight, addresses []byte) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callGetOrderedCommitteeForAddressesSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight, addresses []byte) ([]primitives.NodeAddress, error) {
 	attempts := 1
 	for {
 		// exit on system shutdown
@@ -152,7 +152,7 @@ func (s *service) callGetOrderedCommitteeForAddressesSystemContractUntilSuccess(
 	}
 }
 
-func (s *service) callGetOrderedCommitteeForAddressesSystemContract(ctx context.Context, blockHeight primitives.BlockHeight, addresses []byte) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callGetOrderedCommitteeForAddressesSystemContract(ctx context.Context, blockHeight primitives.BlockHeight, addresses []byte) ([]primitives.NodeAddress, error) {
 	systemContractName := primitives.ContractName(committee_systemcontract.CONTRACT_NAME)
 	systemMethodName := primitives.MethodName(committee_systemcontract.METHOD_GET_ORDERED_COMMITTEE_FOR_ADDRESSES)
 	inputArgs := &protocol.ArgumentArrayBuilder{Arguments: []*protocol.ArgumentBuilder{{Type: protocol.ARGUMENT_TYPE_BYTES_VALUE, BytesValue: addresses}}}

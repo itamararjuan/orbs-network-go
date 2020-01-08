@@ -13,6 +13,7 @@ import (
 	"github.com/orbs-network/orbs-network-go/instrumentation/logfields"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
 	"github.com/orbs-network/orbs-network-go/instrumentation/trace"
+	"github.com/orbs-network/orbs-network-go/services/consensuscontext/adapter"
 	"github.com/orbs-network/orbs-spec/types/go/protocol"
 	"github.com/orbs-network/orbs-spec/types/go/services"
 	"github.com/orbs-network/scribe/log"
@@ -42,11 +43,12 @@ func newMetrics(factory metric.Factory) *metrics {
 }
 
 type service struct {
-	transactionPool services.TransactionPool
-	virtualMachine  services.VirtualMachine
-	stateStorage    services.StateStorage
-	config          config.ConsensusContextConfig
-	logger          log.Logger
+	transactionPool   services.TransactionPool
+	virtualMachine    services.VirtualMachine
+	stateStorage      services.StateStorage
+	committeeProvider *adapter.PosV1CommitteeProvider
+	config            config.ConsensusContextConfig
+	logger            log.Logger
 
 	metrics *metrics
 }
@@ -59,14 +61,16 @@ func NewConsensusContext(
 	logger log.Logger,
 	metricFactory metric.Factory,
 ) services.ConsensusContext {
+	committeeProvider := adapter.NewPosV1CommitteeProvider(config, logger, virtualMachine)
 
 	return &service{
-		transactionPool: transactionPool,
-		virtualMachine:  virtualMachine,
-		stateStorage:    stateStorage,
-		config:          config,
-		logger:          logger.WithTags(LogTag),
-		metrics:         newMetrics(metricFactory),
+		transactionPool:   transactionPool,
+		virtualMachine:    virtualMachine,
+		stateStorage:      stateStorage,
+		committeeProvider: committeeProvider,
+		config:            config,
+		logger:            logger.WithTags(LogTag),
+		metrics:           newMetrics(metricFactory),
 	}
 }
 

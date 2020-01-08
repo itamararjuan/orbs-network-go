@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package consensuscontext
+package adapter
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"sort"
 )
 
-func (s *service) generateCommitteeUsingContract(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) generateCommitteeUsingContract(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
 	orderedCommittee, err := s.getOrderedCommittee(ctx, input.CurrentBlockHeight)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func calculateCommitteeSize(maximumCommitteeSize uint32, minimumCommitteeSize ui
 }
 
 // Older version to be deleted in future
-func (s *service) generateCommitteeUsingConsensus(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) generateCommitteeUsingConsensus(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
 	electedValidatorsAddresses, err := s.getElectedValidators(ctx, input.CurrentBlockHeight)
 	if err != nil {
 		return nil, err

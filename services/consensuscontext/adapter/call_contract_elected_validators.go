@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package consensuscontext
+package adapter
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 const CALL_ELECTIONS_CONTRACT_INTERVAL = 200 * time.Millisecond
 
-func (s *service) getElectedValidators(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) getElectedValidators(ctx context.Context, currentBlockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	logger := s.logger.WithTags(trace.LogFieldFrom(ctx))
 
 	lastCommittedBlockHeight := currentBlockHeight - 1
@@ -51,7 +51,7 @@ func (s *service) getElectedValidators(ctx context.Context, currentBlockHeight p
 	return electedValidatorsAddresses, nil
 }
 
-func (s *service) callElectionsSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callElectionsSystemContractUntilSuccess(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	attempts := 1
 	for {
 
@@ -81,7 +81,7 @@ func (s *service) callElectionsSystemContractUntilSuccess(ctx context.Context, b
 	}
 }
 
-func (s *service) callElectionsSystemContract(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
+func (s *PosV1CommitteeProvider) callElectionsSystemContract(ctx context.Context, blockHeight primitives.BlockHeight) ([]primitives.NodeAddress, error) {
 	systemContractName := primitives.ContractName(elections_systemcontract.CONTRACT_NAME)
 	systemMethodName := primitives.MethodName(elections_systemcontract.METHOD_GET_ELECTED_VALIDATORS)
 
