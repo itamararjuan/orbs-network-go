@@ -14,19 +14,18 @@ import (
 	"github.com/orbs-network/orbs-network-go/instrumentation/logfields"
 	"github.com/orbs-network/orbs-network-go/instrumentation/trace"
 	"github.com/orbs-network/orbs-spec/types/go/primitives"
-	"github.com/orbs-network/orbs-spec/types/go/services"
 	"github.com/orbs-network/scribe/log"
 	"sort"
 )
 
-func (s *PosV1CommitteeProvider) generateCommitteeUsingContract(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
-	orderedCommittee, err := s.getOrderedCommittee(ctx, input.CurrentBlockHeight)
+func (s *PosV1CommitteeProvider) generateCommitteeUsingContract(ctx context.Context, currentBlockHeight primitives.BlockHeight, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+	orderedCommittee, err := s.getOrderedCommittee(ctx, currentBlockHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	committeeSize := calculateCommitteeSize(input.MaxCommitteeSize, s.config.LeanHelixConsensusMinimumCommitteeSize(), uint32(len(orderedCommittee)))
-	s.logger.Info("Calculated committee size", logfields.BlockHeight(input.CurrentBlockHeight), log.Uint32("committee-size", committeeSize), log.Int("elected-validators-count", len(orderedCommittee)), log.Uint32("max-committee-size", input.MaxCommitteeSize), trace.LogFieldFrom(ctx))
+	committeeSize := calculateCommitteeSize(maxCommitteeSize, s.config.LeanHelixConsensusMinimumCommitteeSize(), uint32(len(orderedCommittee)))
+	s.logger.Info("Calculated committee size", logfields.BlockHeight(currentBlockHeight), log.Uint32("committee-size", committeeSize), log.Int("elected-validators-count", len(orderedCommittee)), log.Uint32("max-committee-size", maxCommitteeSize), trace.LogFieldFrom(ctx))
 
 	return orderedCommittee[:committeeSize], nil
 }
@@ -43,15 +42,15 @@ func calculateCommitteeSize(maximumCommitteeSize uint32, minimumCommitteeSize ui
 }
 
 // Older version to be deleted in future
-func (s *PosV1CommitteeProvider) generateCommitteeUsingConsensus(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, error) {
-	electedValidatorsAddresses, err := s.getElectedValidators(ctx, input.CurrentBlockHeight)
+func (s *PosV1CommitteeProvider) generateCommitteeUsingConsensus(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+	electedValidatorsAddresses, err := s.getElectedValidators(ctx, currentBlockHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	committeeSize := calculateCommitteeSize(input.MaxCommitteeSize, s.config.LeanHelixConsensusMinimumCommitteeSize(), uint32(len(electedValidatorsAddresses)))
-	s.logger.Info("Calculated committee size", logfields.BlockHeight(input.CurrentBlockHeight), log.Uint32("committee-size", committeeSize), log.Int("elected-validators-count", len(electedValidatorsAddresses)), log.Uint32("max-committee-size", input.MaxCommitteeSize), trace.LogFieldFrom(ctx))
-	indices, err := chooseRandomCommitteeIndices(committeeSize, input.RandomSeed, electedValidatorsAddresses)
+	committeeSize := calculateCommitteeSize(maxCommitteeSize, s.config.LeanHelixConsensusMinimumCommitteeSize(), uint32(len(electedValidatorsAddresses)))
+	s.logger.Info("Calculated committee size", logfields.BlockHeight(currentBlockHeight), log.Uint32("committee-size", committeeSize), log.Int("elected-validators-count", len(electedValidatorsAddresses)), log.Uint32("max-committee-size", maxCommitteeSize), trace.LogFieldFrom(ctx))
+	indices, err := chooseRandomCommitteeIndices(committeeSize, randomSeed, electedValidatorsAddresses)
 	if err != nil {
 		return nil, err
 	}

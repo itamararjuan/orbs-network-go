@@ -24,16 +24,18 @@ func NewPosV1CommitteeProvider(config Config, logger log.Logger, vm services.Vir
 	return &PosV1CommitteeProvider{config:config, logger: logger.WithTags(log.String("adapter", "PosV1CommitteeProvider")), virtualMachine: vm}
 }
 
-func (s *PosV1CommitteeProvider) GetCommittee(ctx context.Context, input *services.RequestCommitteeInput) ([]primitives.NodeAddress, *services.RequestCommitteeOutput, error) {
+
+
+func (s *PosV1CommitteeProvider) GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, *services.RequestCommitteeOutput, error) {
 	var committee []primitives.NodeAddress
 	var err error
 	if s.config.ConsensusContextCommitteeUsingContract() {
-		committee, err = s.generateCommitteeUsingContract(ctx, input)
+		committee, err = s.generateCommitteeUsingContract(ctx,  currentBlockHeight, maxCommitteeSize)
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		committee, err = s.generateCommitteeUsingConsensus(ctx, input)
+		committee, err = s.generateCommitteeUsingConsensus(ctx,  currentBlockHeight, randomSeed, maxCommitteeSize)
 		if err != nil {
 			return nil, nil, err
 		}

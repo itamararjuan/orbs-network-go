@@ -18,7 +18,7 @@ func (s *service) RequestOrderingCommittee(ctx context.Context, input *services.
 }
 
 func (s *service) RequestValidationCommittee(ctx context.Context, input *services.RequestCommitteeInput) (*services.RequestCommitteeOutput, error) {
-	committee, output, e := s.committeeProvider.GetCommittee(ctx, input)
+	committee, output, e := s.committeeProvider.GetCommittee(ctx, input.CurrentBlockHeight, input.RandomSeed, input.MaxCommitteeSize)
 	if e != nil {
 		return output, e
 	}
