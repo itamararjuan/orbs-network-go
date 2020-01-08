@@ -46,7 +46,7 @@ type service struct {
 	transactionPool   services.TransactionPool
 	virtualMachine    services.VirtualMachine
 	stateStorage      services.StateStorage
-	committeeProvider *adapter.PosV1CommitteeProvider
+	committeeProvider adapter.CommitteeProvier
 	config            config.ConsensusContextConfig
 	logger            log.Logger
 

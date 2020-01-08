@@ -8,6 +8,10 @@ import (
 	"github.com/orbs-network/scribe/log"
 )
 
+type CommitteeProvier interface {
+	GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error)
+}
+
 type Config interface {
 	ConsensusContextCommitteeUsingContract() bool
 	GenesisValidatorNodes() map[string]config.ValidatorNode
@@ -24,21 +28,19 @@ func NewPosV1CommitteeProvider(config Config, logger log.Logger, vm services.Vir
 	return &PosV1CommitteeProvider{config:config, logger: logger.WithTags(log.String("adapter", "PosV1CommitteeProvider")), virtualMachine: vm}
 }
 
-
-
-func (s *PosV1CommitteeProvider) GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, *services.RequestCommitteeOutput, error) {
+func (s *PosV1CommitteeProvider) GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
 	var committee []primitives.NodeAddress
 	var err error
 	if s.config.ConsensusContextCommitteeUsingContract() {
 		committee, err = s.generateCommitteeUsingContract(ctx,  currentBlockHeight, maxCommitteeSize)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	} else {
 		committee, err = s.generateCommitteeUsingConsensus(ctx,  currentBlockHeight, randomSeed, maxCommitteeSize)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
-	return committee, nil, nil
+	return committee, nil
 }

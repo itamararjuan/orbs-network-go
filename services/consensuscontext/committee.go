@@ -18,9 +18,9 @@ func (s *service) RequestOrderingCommittee(ctx context.Context, input *services.
 }
 
 func (s *service) RequestValidationCommittee(ctx context.Context, input *services.RequestCommitteeInput) (*services.RequestCommitteeOutput, error) {
-	committee, output, e := s.committeeProvider.GetCommittee(ctx, input.CurrentBlockHeight, input.RandomSeed, input.MaxCommitteeSize)
-	if e != nil {
-		return output, e
+	committee, err := s.committeeProvider.GetCommittee(ctx, input.CurrentBlockHeight, input.RandomSeed, input.MaxCommitteeSize)
+	if err != nil {
+		return nil, err
 	}
 
 	s.metrics.committeeSize.Update(int64(len(committee)))
@@ -29,10 +29,9 @@ func (s *service) RequestValidationCommittee(ctx context.Context, input *service
 		committeeStr[i] = lhprimitives.MemberId(nodeAddress).String()
 	}
 	s.metrics.committeeMembers.Update(strings.Join(committeeStr, ","))
-	res := &services.RequestCommitteeOutput{
+	return &services.RequestCommitteeOutput{
 		NodeAddresses:            committee,
 		NodeRandomSeedPublicKeys: nil,
-	}
-	return res, nil
+	}, nil
 }
 
