@@ -10,6 +10,7 @@ import (
 	"github.com/orbs-network/scribe/log"
 	"github.com/pkg/errors"
 	"sort"
+	"sync"
 )
 
 type Config interface {
@@ -22,8 +23,9 @@ type committeeTerm struct {
 }
 
 type CommitteeProvider struct {
-	committees []*committeeTerm
 	logger     log.Logger
+	sync.RWMutex
+	committees []*committeeTerm
 }
 
 func NewCommitteeProvider(config Config, logger log.Logger) *CommitteeProvider {
@@ -33,13 +35,15 @@ func NewCommitteeProvider(config Config, logger log.Logger) *CommitteeProvider {
 
 
 func (cp *CommitteeProvider) GetCommittee(ctx context.Context, requestedBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+	cp.RLock()
+	defer cp.RUnlock()
 	termIndex := len(cp.committees) - 1
 	for ; termIndex > 0 && requestedBlockHeight < cp.committees[termIndex].asOf ; termIndex-- {
 	}
-	return cp.truncateCommitteeToSize(cp.committees[termIndex], maxCommitteeSize), nil
+	return truncateCommitteeToSize(cp.committees[termIndex], maxCommitteeSize), nil
 }
 
-func (cp *CommitteeProvider) truncateCommitteeToSize(currentCommittee *committeeTerm, maxCommitteeSize uint32) []primitives.NodeAddress {
+func truncateCommitteeToSize(currentCommittee *committeeTerm, maxCommitteeSize uint32) []primitives.NodeAddress {
 	committee := make([]primitives.NodeAddress, 0, maxCommitteeSize)
 
 	for _, nodeAddress := range currentCommittee.committee {
@@ -66,6 +70,8 @@ func getCommitteeFromConfig(config Config) []primitives.NodeAddress {
 }
 
 func (cp *CommitteeProvider) SetCommitteeToTestKeysWithIndices(asOf primitives.BlockHeight, nodeIndices ...int) error {
+	cp.Lock()
+	defer cp.Unlock()
 	if cp.committees[len(cp.committees)-1].asOf >= asOf {
 		return errors.Errorf("new committee must have an 'asOf' reference bigger than %d (and not %d)", cp.committees[len(cp.committees)-1].asOf, asOf)
 	}

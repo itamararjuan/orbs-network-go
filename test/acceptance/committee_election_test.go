@@ -159,8 +159,8 @@ func waitUntilCommitteeApplies(t testing.TB, ctx context.Context, network *Netwo
 	lastBlock, err := network.BlockPersistence(0).GetLastBlockHeight()
 	require.NoError(t, err)
 	// TODO POSV2 need to get timing better.
-	network.committeeProvider.SetCommitteeToTestKeysWithIndices(lastBlock+2, nodeIndices...)
-	network.WaitForBlock(ctx, lastBlock+3)
+	network.committeeProvider.SetCommitteeToTestKeysWithIndices(lastBlock+5, nodeIndices...)
+	network.WaitForBlock(ctx, lastBlock+6)
 }
 
 func verifyTxSignersAreFromGroup(t testing.TB, ctx context.Context, api callcontract.CallContractAPI, txHash primitives.Sha256, nodeIndex int, allowedIndexes []int) {
