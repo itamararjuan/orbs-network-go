@@ -1,4 +1,4 @@
-package adapter
+package posv1
 
 import (
 	"context"
@@ -8,27 +8,27 @@ import (
 	"github.com/orbs-network/scribe/log"
 )
 
-type CommitteeProvier interface {
-	GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error)
-}
-
 type Config interface {
 	ConsensusContextCommitteeUsingContract() bool
 	GenesisValidatorNodes() map[string]config.ValidatorNode
 	LeanHelixConsensusMinimumCommitteeSize() uint32 // TODO POS2 should this really be here
 }
 
-type PosV1CommitteeProvider struct {
+type CommitteeProvider struct {
 	config         Config
 	virtualMachine services.VirtualMachine
 	logger         log.Logger
 }
 
-func NewPosV1CommitteeProvider(config Config, logger log.Logger, vm services.VirtualMachine) *PosV1CommitteeProvider {
-	return &PosV1CommitteeProvider{config:config, logger: logger.WithTags(log.String("adapter", "PosV1CommitteeProvider")), virtualMachine: vm}
+func NewCommitteeProvider(config Config, logger log.Logger,) *CommitteeProvider {
+	return &CommitteeProvider{config: config, logger: logger.WithTags(log.String("adapter", "PosV1CommitteeProvider"))}
 }
 
-func (s *PosV1CommitteeProvider) GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+func (s *CommitteeProvider) RegisterContractCaller(vm services.VirtualMachine) {
+	s.virtualMachine = vm
+}
+
+func (s *CommitteeProvider) GetCommittee(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
 	var committee []primitives.NodeAddress
 	var err error
 	if s.config.ConsensusContextCommitteeUsingContract() {

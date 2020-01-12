@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package adapter
+package posv1
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"sort"
 )
 
-func (s *PosV1CommitteeProvider) generateCommitteeUsingContract(ctx context.Context, currentBlockHeight primitives.BlockHeight, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+func (s *CommitteeProvider) generateCommitteeUsingContract(ctx context.Context, currentBlockHeight primitives.BlockHeight, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
 	orderedCommittee, err := s.getOrderedCommittee(ctx, currentBlockHeight)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func calculateCommitteeSize(maximumCommitteeSize uint32, minimumCommitteeSize ui
 }
 
 // Older version to be deleted in future
-func (s *PosV1CommitteeProvider) generateCommitteeUsingConsensus(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
+func (s *CommitteeProvider) generateCommitteeUsingConsensus(ctx context.Context, currentBlockHeight primitives.BlockHeight, randomSeed uint64, maxCommitteeSize uint32) ([]primitives.NodeAddress, error) {
 	electedValidatorsAddresses, err := s.getElectedValidators(ctx, currentBlockHeight)
 	if err != nil {
 		return nil, err

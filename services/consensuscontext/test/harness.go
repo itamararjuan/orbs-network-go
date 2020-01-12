@@ -15,6 +15,7 @@ import (
 	"github.com/orbs-network/orbs-network-go/crypto/hash"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
 	"github.com/orbs-network/orbs-network-go/services/consensuscontext"
+	"github.com/orbs-network/orbs-network-go/services/consensuscontext/adapter/memory"
 	"github.com/orbs-network/orbs-network-go/test/builders"
 	"github.com/orbs-network/orbs-spec/types/go/primitives"
 	"github.com/orbs-network/orbs-spec/types/go/protocol"
@@ -153,12 +154,15 @@ func newHarness(logger log.Logger, enableTriggers bool) *harness {
 
 	cfg := config.ForConsensusContextTests(genesisValidatorNodes, enableTriggers)
 
+	committeeProvider := memory.NewCommitteeProvider(cfg, logger)
+
 	metricFactory := metric.NewRegistry()
 
 	service := consensuscontext.NewConsensusContext(
 		txPool,
 		machine,
 		state,
+		committeeProvider,
 		cfg, logger, metricFactory)
 
 	return &harness{

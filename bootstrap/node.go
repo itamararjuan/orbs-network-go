@@ -15,6 +15,7 @@ import (
 	"github.com/orbs-network/orbs-network-go/instrumentation/logfields"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
 	"github.com/orbs-network/orbs-network-go/services/blockstorage/adapter/filesystem"
+	"github.com/orbs-network/orbs-network-go/services/consensuscontext/adapter/posv1"
 	ethereumAdapter "github.com/orbs-network/orbs-network-go/services/crosschainconnector/ethereum/adapter"
 	"github.com/orbs-network/orbs-network-go/services/gossip/adapter/tcp"
 	nativeProcessorAdapter "github.com/orbs-network/orbs-network-go/services/processor/native/adapter"
@@ -61,7 +62,9 @@ func NewNode(nodeConfig config.NodeConfig, logger log.Logger) *Node {
 	statePersistence := stateStorageAdapter.NewStatePersistence(metricRegistry)
 	ethereumConnection := ethereumAdapter.NewEthereumRpcConnection(nodeConfig, logger, metricRegistry)
 	nativeCompiler := nativeProcessorAdapter.NewNativeCompiler(nodeConfig, nodeLogger, metricRegistry)
-	nodeLogic := NewNodeLogic(ctx, transport, blockPersistence, statePersistence, nil, nil, txPoolAdapter.NewSystemClock(), nativeCompiler, nodeLogger, metricRegistry, nodeConfig, ethereumConnection)
+	committeeProvider := posv1.NewCommitteeProvider(nodeConfig, nodeLogger)
+	nodeLogic := NewNodeLogic(ctx, transport, blockPersistence, statePersistence, nil, nil, txPoolAdapter.NewSystemClock(),
+		nativeCompiler, committeeProvider, nodeLogger, metricRegistry, nodeConfig, ethereumConnection)
 
 	httpServer.RegisterPublicApi(nodeLogic.PublicApi())
 

@@ -46,7 +46,7 @@ type service struct {
 	transactionPool   services.TransactionPool
 	virtualMachine    services.VirtualMachine
 	stateStorage      services.StateStorage
-	committeeProvider adapter.CommitteeProvier
+	committeeProvider adapter.CommitteeProvider
 	config            config.ConsensusContextConfig
 	logger            log.Logger
 
@@ -57,12 +57,11 @@ func NewConsensusContext(
 	transactionPool services.TransactionPool,
 	virtualMachine services.VirtualMachine,
 	stateStorage services.StateStorage,
+	committeeProvider adapter.CommitteeProvider,
 	config config.ConsensusContextConfig,
 	logger log.Logger,
 	metricFactory metric.Factory,
 ) services.ConsensusContext {
-	committeeProvider := adapter.NewPosV1CommitteeProvider(config, logger, virtualMachine)
-
 	return &service{
 		transactionPool:   transactionPool,
 		virtualMachine:    virtualMachine,
