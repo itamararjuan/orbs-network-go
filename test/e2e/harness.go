@@ -162,6 +162,10 @@ func (h *Harness) GetTransactionStatus(txId string) (*codec.TransactionResponse,
 	return response.TransactionResponse, err
 }
 
+func (h *Harness) GetBlock(blockHeight uint64) (*codec.GetBlockResponse, error) {
+	return h.client.GetBlock(blockHeight)
+}
+
 func (h *Harness) GetTransactionReceiptProof(txId string) (response *codec.GetTransactionReceiptProofResponse, err error) {
 	response, err = h.client.GetTransactionReceiptProof(txId)
 	return

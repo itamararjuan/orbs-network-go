@@ -10,11 +10,12 @@ package bootstrap
 
 import (
 	"github.com/orbs-network/orbs-network-go/config"
+	"github.com/orbs-network/orbs-network-go/services/processor/stream"
 	"github.com/orbs-network/orbs-spec/types/go/protocol"
 	"github.com/orbs-network/orbs-spec/types/go/services"
 	"github.com/orbs-network/scribe/log"
 )
 
 func addExtraProcessors(processors map[protocol.ProcessorType]services.Processor, nodeConfig config.NodeConfig, logger log.Logger) {
-
+	processors[protocol.PROCESSOR_TYPE_JAVASCRIPT] = stream.NewEventStreamProcessor(logger)
 }
