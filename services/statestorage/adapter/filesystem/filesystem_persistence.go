@@ -9,11 +9,13 @@ package memory
 import (
 	"bytes"
 	"context"
+	"github.com/orbs-network/orbs-network-go/config"
 	"github.com/orbs-network/orbs-network-go/crypto/merkle"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
 	"github.com/orbs-network/orbs-network-go/services/statestorage/adapter"
 	"github.com/orbs-network/orbs-spec/types/go/primitives"
 	bolt "go.etcd.io/bbolt"
+	"path/filepath"
 	"sync"
 )
 
@@ -31,6 +33,7 @@ func newMetrics(m metric.Factory) *metrics {
 
 type FilesystemStatePersistence struct {
 	metrics    *metrics
+	config     config.StateStorageConfig
 	mutex      sync.RWMutex
 	height     primitives.BlockHeight
 	ts         primitives.TimestampNano
@@ -40,10 +43,12 @@ type FilesystemStatePersistence struct {
 	db *bolt.DB
 }
 
-func NewStatePersistence(ctx context.Context, metricFactory metric.Factory) *FilesystemStatePersistence {
+const STATE_FILENAME = "state"
+
+func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, metricFactory metric.Factory) *FilesystemStatePersistence {
 	_, merkleRoot := merkle.NewForest()
 
-	db, err := bolt.Open("./state.bolt", 0666, nil)
+	db, err := bolt.Open(filepath.Join(cfg.StateStorageFileSystemDataDir(), STATE_FILENAME), 0666, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -51,6 +56,7 @@ func NewStatePersistence(ctx context.Context, metricFactory metric.Factory) *Fil
 	// TODO(https://github.com/orbs-network/orbs-network-go/issues/582) - this is our hard coded Genesis block (height 0). Move this to a more dignified place or load from a file
 	service := &FilesystemStatePersistence{
 		metrics:    newMetrics(metricFactory),
+		config:     cfg,
 		mutex:      sync.RWMutex{},
 		height:     0,
 		ts:         0,

@@ -15,22 +15,37 @@ import (
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
+	"time"
 )
 
-func TestReadStateWithNonExistingContractName(t *testing.T) {
-	removePersistense()
+type testConfig struct {
+}
 
+func (*testConfig) StateStorageHistorySnapshotNum() uint32 {
+	panic("implement me")
+}
+
+func (*testConfig) StateStorageFileSystemDataDir() string {
+	return "."
+}
+
+func (*testConfig) BlockTrackerGraceDistance() uint32 {
+	panic("implement me")
+}
+
+func (*testConfig) BlockTrackerGraceTimeout() time.Duration {
+	panic("implement me")
+}
+
+func TestReadStateWithNonExistingContractName(t *testing.T) {
 	test.WithContext(func(ctx context.Context) {
-		d := NewStatePersistence(ctx, metric.NewRegistry())
+		d := newDriver(ctx)
 		_, _, err := d.Read("foo", "")
 		require.NoError(t, err, "unexpected error")
 	})
-
 }
 
 func TestWriteStateAddAndRemoveKeyFromPersistentStorage(t *testing.T) {
-	removePersistense()
-
 	test.WithContext(func(ctx context.Context) {
 		d := newDriver(ctx)
 
@@ -56,8 +71,9 @@ type driver struct {
 }
 
 func newDriver(ctx context.Context) *driver {
+	removePersistense()
 	return &driver{
-		NewStatePersistence(ctx, metric.NewRegistry()),
+		NewStatePersistence(ctx, &testConfig{}, metric.NewRegistry()),
 	}
 }
 

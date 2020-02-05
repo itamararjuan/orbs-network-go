@@ -50,6 +50,7 @@ type NodeConfig interface {
 
 	// state storage
 	StateStorageHistorySnapshotNum() uint32
+	StateStorageFileSystemDataDir() string
 
 	// block tracker
 	BlockTrackerGraceDistance() uint32
@@ -182,6 +183,7 @@ type PublicApiConfig interface {
 
 type StateStorageConfig interface {
 	StateStorageHistorySnapshotNum() uint32
+	StateStorageFileSystemDataDir() string
 	BlockTrackerGraceDistance() uint32
 	BlockTrackerGraceTimeout() time.Duration
 }

@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const STORAGE_DATA_DIR = "/usr/local/var/orbs" // TODO V1 use build tags to replace with /var/lib/orbs for linux
+
 // all other configs are variations from the production one
 func defaultProductionConfig() mutableNodeConfig {
 	cfg := emptyConfig()
@@ -67,6 +69,7 @@ func defaultProductionConfig() mutableNodeConfig {
 
 	cfg.SetDuration(BLOCK_STORAGE_TRANSACTION_RECEIPT_QUERY_TIMESTAMP_GRACE, 5*time.Second)
 
+	cfg.SetString(STATE_STORAGE_FILE_SYSTEM_DATA_DIR, STORAGE_DATA_DIR)
 	cfg.SetUint32(STATE_STORAGE_HISTORY_SNAPSHOT_NUM, 5)
 	cfg.SetUint32(TRANSACTION_POOL_PENDING_POOL_SIZE_IN_BYTES, 20*1024*1024)
 	cfg.SetDuration(TRANSACTION_EXPIRATION_WINDOW, 30*time.Minute)
@@ -95,7 +98,7 @@ func defaultProductionConfig() mutableNodeConfig {
 	cfg.SetActiveConsensusAlgo(consensus.CONSENSUS_ALGO_TYPE_BENCHMARK_CONSENSUS)
 	cfg.SetString(ETHEREUM_ENDPOINT, "http://localhost:8545")
 	cfg.SetString(PROCESSOR_ARTIFACT_PATH, filepath.Join(GetProjectSourceTmpPath(), "processor-artifacts"))
-	cfg.SetString(BLOCK_STORAGE_FILE_SYSTEM_DATA_DIR, "/usr/local/var/orbs") // TODO V1 use build tags to replace with /var/lib/orbs for linux
+	cfg.SetString(BLOCK_STORAGE_FILE_SYSTEM_DATA_DIR, STORAGE_DATA_DIR)
 	cfg.SetUint32(BLOCK_STORAGE_FILE_SYSTEM_MAX_BLOCK_SIZE_IN_BYTES, 64*1024*1024)
 
 	cfg.SetDuration(LOGGER_FILE_TRUNCATION_INTERVAL, 24*time.Hour)
