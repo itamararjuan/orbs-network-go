@@ -63,6 +63,12 @@ func TestWriteStateAddAndRemoveKeyFromPersistentStorage(t *testing.T) {
 		require.NoError(t, err, "unexpected error")
 		require.EqualValues(t, false, ok, "writing zero value to state did not remove key")
 
+		height, ts, proposer, merkleRoot, err := d.ReadMetadata()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, height)
+		require.EqualValues(t, 123456, ts)
+		require.EqualValues(t, primitives.NodeAddress("proposer"), proposer)
+		require.EqualValues(t, primitives.Sha256("some-merkle"), merkleRoot)
 	})
 }
 
@@ -79,7 +85,7 @@ func newDriver(ctx context.Context) *driver {
 
 func (d *driver) writeSingleValueBlock(h primitives.BlockHeight, c, k, v string) error {
 	diff := adapter.ChainState{primitives.ContractName(c): {k: []byte(v)}}
-	return d.FilesystemStatePersistence.Write(h, 0, []byte{}, []byte{}, diff)
+	return d.FilesystemStatePersistence.Write(h, 123456, []byte("proposer"), []byte("some-merkle"), diff)
 }
 
 func removePersistense() {

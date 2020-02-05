@@ -9,6 +9,7 @@ package memory
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"github.com/orbs-network/orbs-network-go/config"
 	"github.com/orbs-network/orbs-network-go/crypto/merkle"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
@@ -45,9 +46,13 @@ type FilesystemStatePersistence struct {
 
 const STATE_FILENAME = "state"
 
-func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, metricFactory metric.Factory) *FilesystemStatePersistence {
-	_, merkleRoot := merkle.NewForest()
+var METADATA = []byte("metadata")
+var METADATA_BLOCK_HEIGHT = []byte("blockHeight")
+var METADATA_TIMESTAMP = []byte("timestamp")
+var METADATA_PROPOSER = []byte("proposer")
+var METADATA_MERKLE_ROOT = []byte("merkleRoot")
 
+func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, metricFactory metric.Factory) *FilesystemStatePersistence {
 	db, err := bolt.Open(filepath.Join(cfg.StateStorageFileSystemDataDir(), STATE_FILENAME), 0666, nil)
 	if err != nil {
 		panic(err)
@@ -55,14 +60,10 @@ func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, met
 
 	// TODO(https://github.com/orbs-network/orbs-network-go/issues/582) - this is our hard coded Genesis block (height 0). Move this to a more dignified place or load from a file
 	service := &FilesystemStatePersistence{
-		metrics:    newMetrics(metricFactory),
-		config:     cfg,
-		mutex:      sync.RWMutex{},
-		height:     0,
-		ts:         0,
-		proposer:   []byte{},
-		merkleRoot: merkleRoot,
-		db:         db,
+		metrics: newMetrics(metricFactory),
+		config:  cfg,
+		mutex:   sync.RWMutex{},
+		db:      db,
 	}
 	go service.closeAutomatically(ctx) // FIXME use govnr
 	return service
@@ -84,10 +85,9 @@ func (sp *FilesystemStatePersistence) Write(height primitives.BlockHeight, ts pr
 	sp.mutex.Lock()
 	defer sp.mutex.Unlock()
 
-	sp.height = height
-	sp.proposer = proposer
-	// TOOD noam why not ts ?
-	sp.merkleRoot = root
+	if err := sp._updateMetadata(height, ts, proposer, root); err != nil {
+		return err
+	}
 
 	for contract, records := range diff {
 		for key, value := range records {
@@ -100,12 +100,11 @@ func (sp *FilesystemStatePersistence) Write(height primitives.BlockHeight, ts pr
 	return nil
 }
 
-func (sp *FilesystemStatePersistence) _writeOneRecord(c primitives.ContractName, key string, value []byte) error {
+func (sp *FilesystemStatePersistence) _writeOneRecord(contract primitives.ContractName, key string, value []byte) error {
 	return sp.db.Update(func(tx *bolt.Tx) error {
-		contractNameAsBytes := []byte(c)
 		keyAsBytes := []byte(key)
 
-		records, err := tx.CreateBucketIfNotExists(contractNameAsBytes)
+		records, err := tx.CreateBucketIfNotExists(contractNameKey(contract))
 		if err != nil {
 			return err
 		}
@@ -118,15 +117,31 @@ func (sp *FilesystemStatePersistence) _writeOneRecord(c primitives.ContractName,
 	})
 }
 
+func (sp *FilesystemStatePersistence) _updateMetadata(height primitives.BlockHeight, ts primitives.TimestampNano,
+	proposer primitives.NodeAddress, merkleRoot primitives.Sha256) error {
+	return sp.db.Update(func(tx *bolt.Tx) error {
+		metadata, err := tx.CreateBucketIfNotExists(METADATA)
+		if err != nil {
+			return err
+		}
+
+		metadata.Put(METADATA_BLOCK_HEIGHT, _uint64ToBytes(uint64(height)))
+		metadata.Put(METADATA_TIMESTAMP, _uint64ToBytes(uint64(ts)))
+		metadata.Put(METADATA_PROPOSER, proposer)
+		metadata.Put(METADATA_MERKLE_ROOT, merkleRoot)
+
+		return nil
+	})
+}
+
 func (sp *FilesystemStatePersistence) Read(contract primitives.ContractName, key string) (record []byte, found bool, err error) {
 	sp.mutex.RLock()
 	defer sp.mutex.RUnlock()
 
 	err = sp.db.View(func(tx *bolt.Tx) error {
-		contractNameAsBytes := []byte(contract)
 		keyAsBytes := []byte(key)
 
-		records := tx.Bucket(contractNameAsBytes)
+		records := tx.Bucket(contractNameKey(contract))
 		if records == nil {
 			return nil
 		}
@@ -140,11 +155,28 @@ func (sp *FilesystemStatePersistence) Read(contract primitives.ContractName, key
 	return
 }
 
-func (sp *FilesystemStatePersistence) ReadMetadata() (primitives.BlockHeight, primitives.TimestampNano, primitives.NodeAddress, primitives.Sha256, error) {
+func (sp *FilesystemStatePersistence) ReadMetadata() (height primitives.BlockHeight, ts primitives.TimestampNano,
+	proposer primitives.NodeAddress, merkleRoot primitives.Sha256, err error) {
 	sp.mutex.RLock()
 	defer sp.mutex.RUnlock()
 
-	return sp.height, sp.ts, sp.proposer, sp.merkleRoot, nil
+	err = sp.db.View(func(tx *bolt.Tx) error {
+		metadata := tx.Bucket(METADATA)
+		height = primitives.BlockHeight(_bytesToUint64(metadata.Get(METADATA_BLOCK_HEIGHT)))
+		ts = primitives.TimestampNano(_bytesToUint64(metadata.Get(METADATA_TIMESTAMP)))
+
+		if proposer = metadata.Get(METADATA_PROPOSER); proposer == nil {
+			proposer = []byte{}
+		}
+
+		if merkleRoot = metadata.Get(METADATA_MERKLE_ROOT); merkleRoot == nil {
+			_, merkleRoot = merkle.NewForest()
+		}
+
+		return nil
+	})
+
+	return
 }
 
 func isZeroValue(value []byte) bool {
@@ -159,4 +191,21 @@ func (sp *FilesystemStatePersistence) closeAutomatically(ctx context.Context) {
 			panic(err)
 		}
 	}
+}
+
+func contractNameKey(contract primitives.ContractName) []byte {
+	return []byte("contract_" + contract)
+}
+
+func _uint64ToBytes(value uint64) []byte {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, value)
+	return bytes
+}
+
+func _bytesToUint64(value []byte) uint64 {
+	if len(value) < 8 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(value)
 }
