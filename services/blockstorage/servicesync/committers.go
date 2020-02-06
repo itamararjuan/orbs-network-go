@@ -39,6 +39,7 @@ func (ssc *stateStorageCommitter) commitBlockPair(ctx context.Context, committed
 		ResultsBlockHeader: committedBlockPair.ResultsBlock.Header,
 		ContractStateDiffs: committedBlockPair.ResultsBlock.ContractStateDiffs,
 	})
+	// FIXME will cause panic if error is ever returned
 	return out.NextDesiredBlockHeight, err
 }
 

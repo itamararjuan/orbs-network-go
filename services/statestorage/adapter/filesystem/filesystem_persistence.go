@@ -160,8 +160,14 @@ func (sp *FilesystemStatePersistence) ReadMetadata() (height primitives.BlockHei
 	sp.mutex.RLock()
 	defer sp.mutex.RUnlock()
 
+	_, merkleRoot = merkle.NewForest()
+
 	err = sp.db.View(func(tx *bolt.Tx) error {
 		metadata := tx.Bucket(METADATA)
+		if metadata == nil {
+			return nil
+		}
+
 		height = primitives.BlockHeight(_bytesToUint64(metadata.Get(METADATA_BLOCK_HEIGHT)))
 		ts = primitives.TimestampNano(_bytesToUint64(metadata.Get(METADATA_TIMESTAMP)))
 
@@ -169,10 +175,7 @@ func (sp *FilesystemStatePersistence) ReadMetadata() (height primitives.BlockHei
 			proposer = []byte{}
 		}
 
-		if merkleRoot = metadata.Get(METADATA_MERKLE_ROOT); merkleRoot == nil {
-			_, merkleRoot = merkle.NewForest()
-		}
-
+		merkleRoot = metadata.Get(METADATA_MERKLE_ROOT)
 		return nil
 	})
 
