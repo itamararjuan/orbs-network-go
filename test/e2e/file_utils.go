@@ -70,12 +70,15 @@ func deployBlockStorageFiles(targetDir string, logger log.Logger) {
 	if err != nil {
 		panic(fmt.Sprintf("could not create directory %s: %e", targetDir, err))
 	}
-	sourceBlocksFilePath := filepath.Join(config.GetCurrentSourceFileDirPath(), "_data", "blocks")
-	targetBlocksFilePath := filepath.Join(targetDir, "blocks")
+	copyStorageFile(targetDir, logger, "blocks")
+	copyStorageFile(targetDir, logger, "state")
+}
 
-	logger.Info("copying blocks file", log.String("source", sourceBlocksFilePath), log.String("target", targetBlocksFilePath))
-
-	err = CopyFile(sourceBlocksFilePath, targetBlocksFilePath)
+func copyStorageFile(targetDir string, logger log.Logger, filename string) {
+	sourceBlocksFilePath := filepath.Join(config.GetCurrentSourceFileDirPath(), "_data", filename)
+	targetBlocksFilePath := filepath.Join(targetDir, filename)
+	logger.Info("copying file", log.String("source", sourceBlocksFilePath), log.String("target", targetBlocksFilePath))
+	err := CopyFile(sourceBlocksFilePath, targetBlocksFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("could not copy files %s -> %s", sourceBlocksFilePath, targetBlocksFilePath))
 	}

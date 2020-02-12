@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package memory
+package filesystem
 
 import (
 	"context"
@@ -39,7 +39,9 @@ func (*testConfig) BlockTrackerGraceTimeout() time.Duration {
 
 func TestReadStateWithNonExistingContractName(t *testing.T) {
 	test.WithContext(func(ctx context.Context) {
-		d := newDriver(ctx)
+		d := newDriver()
+		defer d.GracefulShutdown(ctx)
+
 		_, _, err := d.Read("foo", "")
 		require.NoError(t, err, "unexpected error")
 	})
@@ -47,7 +49,8 @@ func TestReadStateWithNonExistingContractName(t *testing.T) {
 
 func TestWriteStateAddAndRemoveKeyFromPersistentStorage(t *testing.T) {
 	test.WithContext(func(ctx context.Context) {
-		d := newDriver(ctx)
+		d := newDriver()
+		defer d.GracefulShutdown(ctx)
 
 		d.writeSingleValueBlock(1, "foo", "foo", "bar")
 
@@ -76,10 +79,10 @@ type driver struct {
 	*FilesystemStatePersistence
 }
 
-func newDriver(ctx context.Context) *driver {
+func newDriver() *driver {
 	removePersistense()
 	return &driver{
-		NewStatePersistence(ctx, &testConfig{}, metric.NewRegistry()),
+		NewStatePersistence(&testConfig{}, metric.NewRegistry()),
 	}
 }
 

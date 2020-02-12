@@ -144,6 +144,7 @@ func (s *service) ProcessCall(ctx context.Context, input *services.ProcessCallIn
 	// result
 	callResult := protocol.EXECUTION_RESULT_SUCCESS
 	if contractErr != nil {
+		//panic(contractErr)
 		logger.Info("contract returned error", log.Stringable("contract", input.ContractName), log.Stringable("method", input.MethodName), log.Error(contractErr))
 
 		callResult = protocol.EXECUTION_RESULT_ERROR_SMART_CONTRACT

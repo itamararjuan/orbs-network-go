@@ -4,7 +4,7 @@
 // This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree.
 // The above notice should be included in all copies or substantial portions of the software.
 
-package memory
+package filesystem
 
 import (
 	"bytes"
@@ -52,7 +52,7 @@ var METADATA_TIMESTAMP = []byte("timestamp")
 var METADATA_PROPOSER = []byte("proposer")
 var METADATA_MERKLE_ROOT = []byte("merkleRoot")
 
-func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, metricFactory metric.Factory) *FilesystemStatePersistence {
+func NewStatePersistence(cfg config.StateStorageConfig, metricFactory metric.Factory) *FilesystemStatePersistence {
 	db, err := bolt.Open(filepath.Join(cfg.StateStorageFileSystemDataDir(), STATE_FILENAME), 0666, nil)
 	if err != nil {
 		panic(err)
@@ -65,7 +65,6 @@ func NewStatePersistence(ctx context.Context, cfg config.StateStorageConfig, met
 		mutex:   sync.RWMutex{},
 		db:      db,
 	}
-	go service.closeAutomatically(ctx) // FIXME use govnr
 	return service
 }
 
@@ -186,12 +185,18 @@ func isZeroValue(value []byte) bool {
 	return bytes.Equal(value, []byte{})
 }
 
-// FIXME needs further considerations
-func (sp *FilesystemStatePersistence) closeAutomatically(ctx context.Context) {
+func (sp *FilesystemStatePersistence) GracefulShutdown(shutdownContext context.Context) {
+	if err := sp.db.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func (sp *FilesystemStatePersistence) WaitUntilShutdown(timeoutCtx context.Context) {
 	select {
-	case <-ctx.Done():
-		if err := sp.db.Close(); err != nil {
-			panic(err)
+	case <-timeoutCtx.Done():
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			//h.errorHandler.Error(errors.Wrapf(timeoutCtx.Err(), "Forever governed goroutine %s timed out while waiting for shutdown", h.name))
+			panic("FIXME")
 		}
 	}
 }
@@ -211,4 +216,8 @@ func _bytesToUint64(value []byte) uint64 {
 		return 0
 	}
 	return binary.BigEndian.Uint64(value)
+}
+
+func (sp *FilesystemStatePersistence) Dump() string {
+	return ""
 }

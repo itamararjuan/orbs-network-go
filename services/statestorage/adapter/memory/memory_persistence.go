@@ -8,6 +8,7 @@ package memory
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/orbs-network/orbs-network-go/crypto/merkle"
 	"github.com/orbs-network/orbs-network-go/instrumentation/metric"
@@ -145,4 +146,12 @@ func (sp *InMemoryStatePersistence) Dump() string {
 
 func isZeroValue(value []byte) bool {
 	return bytes.Equal(value, []byte{})
+}
+
+func (sp *InMemoryStatePersistence) GracefulShutdown(shutdownContext context.Context) {
+
+}
+
+func (sp *InMemoryStatePersistence) WaitUntilShutdown(timeoutCtx context.Context) {
+
 }
